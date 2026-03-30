@@ -1,0 +1,11 @@
+xterm*background	:  #002b36
+xterm*foreground	:  #ebdbb2
+XTerm*eightBitInput	:  false
+XTerm*scrollBar		:  off
+XTerm*faceName		:  xft:Monaco for Powerline:pixelsize=17
+Xft.rgba		:               rgb
+Xft.antialias		:          true
+Xft.hinting		:            true
+Xft.hintstyle		:          hintslight
+xterm*visualBell	:	false
+Emacs.Font		:		Monaco for Powerline:pixelsize=17

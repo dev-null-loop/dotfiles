@@ -1,0 +1,47 @@
+!!!Happy Hacking Keyboard Professional BT
+!!!https://www.reddit.com/r/HHKB/comments/mfq7f6/osx_and_the_deletebs_key/
+!!!NOTE: Remember to disconnect/restart the keyboard before moving the switches!
+keycode 102 = Super_L NoSymbol Super_L
+keycode 100 = Super_R NoSymbol Super_R
+
+
+!!!Happy Hacking Keyboard Lite
+!clear mod1
+!clear mod4
+!keycode 64 = Meta_L
+!keycode 133 = Super_L
+!keycode 134 = Super_R
+
+!clear mod1
+!clear mod4
+!keycode 64 = Super_L
+!add mod1 = Super_L Super_R
+!add mod4 = Alt_L Meta_L Alt_R Meta_R
+
+!mod1        Alt_L (0x40),  Alt_L (0xcc),  Meta_L (0xcd)
+!mod4        Super_L (0x85),  Super_R (0x86),  Super_L (0xce),  Hyper_L (0xcf)
+
+!https://superuser.com/questions/1709357/difficulty-remapping-the-super-key
+
+!clear mod1
+!clear mod4
+!add mod4 = Alt_L Meta_L
+!add mod1 = Super_L Super_R
+
+!add mod3 = Muhenkan
+
+!clear mod1
+!add mod1 = Meta_L Alt_L
+
+!keycode 64 (keysym 0xffe9, Alt_L), same_screen YES,
+!keycode 133 (keysym 0xffeb, Super_L), same_screen YES,
+! https://superuser.com/questions/277990/how-do-i-swap-alt-and-windows-keys-with-xmodmap
+!remove mod1 = Alt_L
+!remove mod4 = Super_L
+!keycode 64 = Alt_L
+!keycode 133 = Super_L
+!add mod1 = Alt_L
+!add mod4 = Super_L
+
+!setxkbmap -model hhk -layout ro -option ""
+!setxkbmap -model hhk -layout ro -option ctrl:nocaps,altwin:swap_lalt_lwin  !M-< dont work

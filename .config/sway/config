@@ -1,5 +1,9 @@
-input "type:keyboard" {
-    xkb_options "ctrl:swapcaps"
+set $mod Mod4
+bindsym $mod+Return exec foot
+bindsym $mod+Shift+e exec "swaymsg exit"
+
+input type:keyboard {
+    xkb_options ctrl:nocaps
     repeat_delay 250
     repeat_rate 30
 }

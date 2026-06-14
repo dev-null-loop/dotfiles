@@ -1,9 +1,9 @@
-set $mod Mod4
-bindsym $mod+Return exec foot
-bindsym $mod+Shift+e exec "swaymsg exit"
+include /etc/sway/config
 
-input type:keyboard {
-    xkb_options ctrl:nocaps
+input "type:keyboard" {
+    xkb_options "ctrl:swapcaps"
     repeat_delay 250
     repeat_rate 30
 }
+
+font pango:Monaco for Powerline 10

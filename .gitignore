@@ -1,0 +1,12 @@
+.emacs.d/eln-cache/
+.emacs.d/elpa/gnupg/
+.emacs.d/savehist
+.emacs.d/auto-save-list/
+.emacs.d/recentf
+.emacs.d/bookmarks
+.emacs.d/eshell/
+.emacs.d/tramp
+.emacs.d/transient/
+.emacs.d/projectile-bookmarks.eld
+.emacs.d/projects
+.emacs.d/url/

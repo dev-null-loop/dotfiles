@@ -16,6 +16,7 @@
 
 (require 'ui)
 (require 'bd-agent-shell)
+(require 'workflow)
 
 (load custom-file 'noerror)
 

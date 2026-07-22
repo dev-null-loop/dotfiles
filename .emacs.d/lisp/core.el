@@ -198,6 +198,43 @@
   (dired-do-delete)
   (revert-buffer))
 
+(defun bd/dired-associated-program (file)
+  "Return the external program associated with FILE, or nil."
+  (let ((file-name (downcase (file-name-nondirectory file))))
+    (catch 'match
+      (dolist (entry dired-guess-shell-alist-user)
+        (when (string-match-p (car entry) file-name)
+          (throw 'match
+                 (let ((command (cdr entry)))
+                   (if (listp command) (car command) command))))))))
+
+(defun bd/dired-open-externally (&optional file)
+  "Open FILE with its external associated program."
+  (let* ((file (or file (dired-get-filename)))
+         (program (bd/dired-associated-program file)))
+    (when (stringp program)
+      (let* ((resolved-program (or (executable-find program) program))
+             (process-environment
+              (if (string-match-p "geeqie\\'" resolved-program)
+                  (cons "GQ_DISABLE_CLUTTER=y" process-environment)
+                process-environment))
+             (command (mapconcat #'shell-quote-argument
+                                 (list resolved-program file)
+                                 " ")))
+        (start-process-shell-command
+         (format "dired-open-%d" (truncate (float-time)))
+         nil
+         (if (executable-find "setsid")
+             (format "setsid -f %s >/dev/null 2>&1" command)
+           (format "%s >/dev/null 2>&1 &" command)))
+        t))))
+
+(defun dired-do-shell-command-in-background ()
+  "Open the current Dired file with its associated external program."
+  (interactive)
+  (unless (bd/dired-open-externally)
+    (message "no association")))
+
 (add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
 (add-hook 'before-save-hook #'whitespace-cleanup)
 (add-hook 'dired-mode-hook

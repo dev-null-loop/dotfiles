@@ -5,18 +5,25 @@
 
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 
-(require 'core)
-(require 'packages)
+(defun bd/load-config-module (feature)
+  "Load FEATURE from `user-emacs-directory'/lisp, even during reloads."
+  (let ((file (expand-file-name (format "lisp/%s.el" feature) user-emacs-directory)))
+    (if (file-exists-p file)
+        (load file nil 'nomessage)
+      (require feature))))
+
+(bd/load-config-module 'core)
+(bd/load-config-module 'packages)
 
 (when bd/linux
-  (require 'os-linux))
+  (bd/load-config-module 'os-linux))
 
 (when bd/mac
-  (require 'os-mac))
+  (bd/load-config-module 'os-mac))
 
-(require 'ui)
-(require 'bd-agent-shell)
-(require 'workflow)
+(bd/load-config-module 'ui)
+(bd/load-config-module 'bd-agent-shell)
+(bd/load-config-module 'workflow)
 
 (load custom-file 'noerror)
 

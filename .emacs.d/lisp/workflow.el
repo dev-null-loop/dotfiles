@@ -1,232 +1,12 @@
-(use-package projectile
-  :bind-keymap (("C-c C-p" . projectile-command-map)
-                ("C-c p" . projectile-command-map)
-                ("s-p" . projectile-command-map))
-  :hook (after-init . projectile-mode)
-  :config
-  (setq projectile-completion-system 'helm
-        projectile-enable-caching 0
-        projectile-require-project-root nil
-        projectile-switch-project-action 'projectile-dired)
-  (projectile-register-project-type
-   'terraform
-   '("versions.tf")
-   :project-file '("versions.tf")
-   :compile "terraform plan"))
+;;; 5. Keybindings
 
-(use-package smartparens
-  :ensure t)
+;;; 5.1 System keys
 
-(use-package ansible
-  :ensure t)
+(global-set-key (kbd "<XF86MonBrightnessUp>") (lambda () (interactive) (shell-command "brightness_up")))
+(global-set-key (kbd "<XF86MonBrightnessDown>")
+		(lambda () (interactive) (shell-command "brightness_down")))
 
-(use-package jinja2-mode
-  :ensure t)
-
-(defun bd/yaml-next-field ()
-  "Jump to the next YAML field separator."
-  (interactive)
-  (search-forward-regexp ": *"))
-
-(defun bd/yaml-prev-field ()
-  "Jump to the previous YAML field separator."
-  (interactive)
-  (search-backward-regexp ": *"))
-
-(defun bd/toggle-fold ()
-  "Toggle simple indentation-based folding."
-  (interactive)
-  (let ((col 1))
-    (save-excursion
-      (back-to-indentation)
-      (setq col (+ 1 (current-column)))
-      (set-selective-display
-       (if selective-display nil (or col 1))))))
-
-(global-set-key [(C M i)] #'bd/toggle-fold)
-
-(use-package highlight-indentation
-  :ensure t
-  :config
-  (set-face-background 'highlight-indentation-face "#ebdbb2"))
-
-(add-hook 'yaml-mode-hook #'flymake-yamllint-setup)
-(use-package yaml-mode
-  :ensure t
-  :config
-  (add-to-list 'auto-mode-alist '("\\.yml$" . yaml-mode))
-  (add-hook 'yaml-mode-hook
-            (lambda ()
-              (smartparens-mode)
-              (highlight-indentation-mode 1)
-              (define-key yaml-mode-map "\C-m" #'newline-and-indent)
-              (define-key yaml-mode-map "\C-c n" #'bd/yaml-next-field)
-              (define-key yaml-mode-map "\C-c p" #'bd/yaml-prev-field))))
-
-(use-package git-link
-  :ensure t)
-
-(use-package forge
-  :ensure t
-  :after magit)
-
-(use-package transient
-  :ensure t
-  :config
-  (transient-bind-q-to-quit))
-
-(use-package magit
-  :ensure t
-  :bind (("C-x g" . magit-status)
-         ("C-c g" . magit-file-dispatch)
-         ("C-c c l" . git-link))
-  :custom
-  (magit-log-section-commit-count 20)
-  (magit-log-margin '(t "%Y-%m-%d %H:%M " magit-log-margin-width t 18))
-  (git-link-use-commit t)
-  (global-magit-file-mode t)
-  (magit-display-buffer-function
-   (lambda (buffer)
-     (display-buffer buffer '(display-buffer-same-window))))
-  :config
-  (dolist (cmd '(magit-edit-line-commit magit-clean))
-    (put cmd 'disabled nil)))
-
-(with-eval-after-load 'magit-status
-  (require 'magit-sequence)
-  (require 'magit-bisect)
-  (require 'magit-stash))
-
-(with-eval-after-load 'git-link
-  (dolist (host '("orahub\\.oci\\.oraclecorp\\.com"
-                  "devops\\.scmservice\\.eu-frankfurt-1\\.oci\\.oraclecloud\\.com"))
-    (add-to-list 'git-link-remote-alist (list host #'git-link-github))
-    (add-to-list 'git-link-commit-remote-alist (list host #'git-link-commit-github))))
-
-(use-package visual-regexp
-  :defer t
-  :config
-  (define-key global-map (kbd "C-c r") #'vr/replace)
-  (define-key global-map (kbd "C-c q") #'vr/query-replace)
-  (define-key global-map (kbd "C-c m") #'vr/mc-mark))
-
-(when bd/linux
-  (use-package pulseaudio-control
-    :ensure t
-    :bind (("<XF86AudioRaiseVolume>" . pulseaudio-control-increase-sink-volume)
-           ("<XF86AudioLowerVolume>" . pulseaudio-control-decrease-sink-volume)
-           ("<XF86AudioMute>" . pulseaudio-control-toggle-current-sink-mute)
-           ("C-c v" . hydra-pulseaudio-control/body))
-    :bind-keymap ("C-c v" . pulseaudio-control-map)
-    :config
-    (use-package hydra :ensure t)
-    (defhydra hydra-pulseaudio-control (:hint nil)
-      "Pulseaudio Control"
-      ("+" pulseaudio-control-increase-sink-kvolume "Increase Volume")
-      ("i" pulseaudio-control-increase-sink-volume "Increase Volume")
-      ("-" pulseaudio-control-decrease-sink-volume "Decrease Volume")
-      ("d" pulseaudio-control-decrease-sink-volume "Decrease Volume")
-      ("m" pulseaudio-control-toggle-current-sink-mute "Toggle Mute")
-      ("s" pulseaudio-control-select-sink-by-name "Select Sink")
-      ("q" nil "quit"))
-    (setq pulseaudio-control-volume-step "5%"
-          pulseaudio-control-use-default-sink t
-          pulseaudio-control-use-default-source t))
-  (pulseaudio-control-default-keybindings))
-
-(use-package vterm
-  :ensure t
-  :custom
-  (vterm-always-compile-module t)
-  (vterm-max-scrollback 1000000)
-  :bind (:map vterm-mode-map
-              ("M-2" . split-window-vertically))
-  :config
-  (global-set-key (kbd "C-c C-n") #'vterm-next-prompt)
-  (global-set-key (kbd "C-c C-p") #'vterm-previous-prompt)
-  (global-set-key (kbd "C-c C-t") #'vterm-copy-mode))
-
-(use-package markdown-mode
-  :ensure t
-  :mode (("README\\.md\\'" . gfm-mode)
-         ("\\.markdown\\'" . gfm-mode)
-         ("\\.md\\'" . gfm-mode))
-  :init
-  (setq markdown-command "multimarkdown")
-  :config
-  (font-lock-mode -1))
-
-(autoload 'markdown-mode "markdown-mode" "Major mode for Markdown." t)
-(autoload 'gfm-mode "markdown-mode" "Major mode for GitHub Markdown." t)
-
-(use-package groovy-mode
-  :mode ("\\.groovy\\'" . groovy-mode))
-
-(use-package ace-window
-  :ensure t
-  :config
-  (global-set-key (kbd "s-o") #'ace-window)
-  (setq aw-scope 'frame))
-
-(use-package macro-math
-  :defer t
-  :bind (("C-x =" . macro-math-eval-region)
-         ("C-x ~" . macro-math-eval-and-round-region)))
-
-(setq tramp-default-method "ssh")
-
-(use-package eshell
-  :init
-  (setq eshell-scroll-to-bottom-on-input 'all
-        eshell-error-if-no-glob t
-        eshell-hist-ignoredups t
-        eshell-save-history-on-exit t
-        eshell-prefer-lisp-functions nil
-        eshell-destroy-buffer-when-process-dies t
-        eshell-cmpl-cycle-completions nil
-        eshell-buffer-maximum-lines 1048576)
-  :config
-  (add-hook 'eshell-mode-hook
-            (lambda ()
-              (dolist (cmd '("ssh" "tail" "wget" "top"))
-                (add-to-list 'eshell-visual-commands cmd))
-              (setq pcomplete-cycle-completions nil)))
-  (add-to-list 'eshell-modules-list 'eshell-tramp)
-  (with-eval-after-load 'em-term
-    (setq eshell-visual-subcommands
-          (cl-delete-duplicates eshell-visual-subcommands :test #'equal))))
-
-(use-package bash-completion
-  :ensure t
-  :config
-  (bash-completion-setup)
-  (add-hook 'eshell-mode-hook
-            (lambda ()
-              (add-hook 'completion-at-point-functions
-                        #'bash-completion-capf-nonexclusive nil t))))
-
-(use-package em-hist
-  :ensure nil)
-
-(use-package dictionary
-  :ensure t)
-
-(use-package terraform-doc
-  :ensure t)
-
-(use-package terraform-mode
-  :ensure t
-  :hook (terraform-mode . terraform-format-on-save-mode))
-
-(global-auto-revert-mode 1)
-(global-font-lock-mode 1)
-(ido-mode 0)
-(helm-mode 1)
-(setq completion-styles '(flex)
-      helm-follow-mode-persistent t
-      helm-find-noerrors 1)
-(when (fboundp 'helm-projectile-on)
-  (helm-projectile-on))
+;;; 5.2 Window and buffer management
 
 (global-set-key (kbd "C-w") #'backward-kill-word)
 (global-set-key (kbd "C-x C-k") #'kill-region)
@@ -236,157 +16,373 @@
 (global-set-key (kbd "M-3") #'split-window-horizontally)
 (global-set-key (kbd "C-x C-n") #'other-window)
 (global-set-key (kbd "C-x r u") #'revert-buffer)
+(global-set-key (kbd "C-x k") #'bd/kill-buffer-silently)
 (global-set-key (kbd "C-x m") #'list-bookmarks)
 (global-set-key (kbd "C-x C-b") #'bs-show)
 (global-set-key (kbd "M-g") #'goto-line)
-(global-set-key (kbd "C-c C-o") #'browse-url-at-point)
+(global-set-key (kbd "C-z") nil)
 (global-set-key (kbd "C-x C-c") #'save-buffers-kill-emacs)
 
-(use-package pdf-tools
-  :ensure t
-  :config
-  (pdf-tools-install))
+;;; 5.3 Shells, terminals, and commands
 
-(add-hook 'pdf-view-mode-hook
-          (lambda ()
-            (display-line-numbers-mode -1)))
+(global-set-key (kbd "C-c +") #'bd/resize-window-vertically)
+(global-set-key (kbd "C-c C-n") #'vterm-next-prompt)
+(global-set-key (kbd "C-c C-p") #'vterm-previous-prompt)
+(global-set-key (kbd "C-c C-t") #'vterm-copy-mode)
+(global-set-key (kbd "C-x 7 2") #'bd/maximize-window-in-direction)
+(global-set-key
+ (kbd "C-x 7 3")
+ (lambda ()
+   (interactive)
+   (bd/maximize-window-in-direction 'horizontal)))
 
-(use-package corfu
-  :ensure t
-  :custom
-  (corfu-cycle t)
-  (corfu-auto t)
-  (corfu-auto-prefix 0)
-  (corfu-auto-delay 0)
-  (corfu-echo-documentation 0.25)
-  (corfu-preview-current 'insert)
-  (corfu-preselect-first nil)
-  (corfu-on-exact-match nil)
-  :config
-  (setq tab-always-indent 'complete)
-  (add-hook 'eshell-mode-hook
-            (lambda ()
-              (setq-local corfu-auto nil)
-              (corfu-mode))))
+;;; 5.4 Editing and search helpers
 
-(use-package vlf
-  :ensure t)
+(global-set-key (kbd "C-M-i") #'bd/toggle-fold)
 
-(use-package go-mode
-  :ensure t
-  :hook (before-save . gofmt-before-save)
-  :bind (:map go-mode-map
-              ("M-." . godef-jump)
-              ("<f6>" . gofmt)
-              ("C-c 6" . gofmt))
-  :config
-  (setq gofmt-command "goimports"))
+;;; 5.5 Browsing and translation
 
-(use-package blacken
-  :ensure t
-  :config
-  (setq blacken-line-length 88))
+(global-set-key (kbd "C-c C-o") #'browse-url-at-point)
 
-(setq ediff-window-setup-function 'ediff-setup-windows-plain)
+;;; 6. Hooks
 
-(use-package google-translate
-  :ensure t
-  :config
-  (require 'google-translate-default-ui)
-  (global-set-key (kbd "C-c t") #'google-translate-at-point)
-  (global-set-key (kbd "C-c T") #'google-translate-query-translate)
-  (defun google-translate--search-tkk () "Search TKK." (list 430675 2721866130))
-  (setq google-translate-backend-method 'curl))
+;;; 6.1 Startup and lifecycle hooks
 
-(global-display-line-numbers-mode 1)
+(add-hook 'window-setup-hook 'toggle-frame-maximized t)
+(add-hook 'emacs-startup-hook #'bd/display-startup-time)
+(add-hook 'after-save-hook 'executable-make-buffer-file-executable-if-script-p)
+(add-hook 'before-save-hook 'whitespace-cleanup)
 
-(setq auth-sources '("~/.authinfo")
-      netstat-program "netstat")
-(prefer-coding-system 'utf-8)
+;;; 6.2 Dired hooks
 
-(when bd/linux
-  (setenv "DBUS_SESSION_BUS_ADDRESS" "unix:path=/run/user/1000/bus"))
+(add-hook 'dired-mode-hook
+	  #'(lambda ()
+	      (local-unset-key "\M-!")
+	      (local-set-key [\C-!] 'shell-command)
+	      (local-set-key "&" 'dired-do-shell-command-in-background)
+	      (local-set-key "\C-d" #'bd/dired-delete-and-revert)))
 
-(use-package ansi-color
-  :ensure t
-  :hook (compilation-filter . ansi-color-compilation-filter))
+;;; 8. Advice and aliases
 
-(use-package sql
-  :ensure t)
+;;; 8.1 General aliases
 
-(add-to-list 'same-window-buffer-names "*SQL*")
+(defalias 'sh 'shell)
+(defalias 'perl-mode 'cperl-mode)
+(defalias 'yes-or-no-p 'y-or-n-p)
+(defalias 'qrr 'query-replace-regexp)
 
-(defun bd/sql-save-history-hook ()
-  "Save SQL input history in a per-product file."
-  (let ((lval 'sql-input-ring-file-name)
-        (rval 'sql-product))
-    (if (symbol-value rval)
-        (let ((filename
-               (concat "~/.emacs.d/sql/"
-                       (symbol-name (symbol-value rval))
-                       "-history.sql")))
-          (set (make-local-variable lval) filename))
-      (error "SQL history will not be saved because %s is nil"
-             (symbol-name rval)))))
+;;; 10. File associations and registries
 
-(add-hook 'sql-interactive-mode-hook #'bd/sql-save-history-hook)
+(setq auto-mode-alist
+      (append
+       '(("\\.js$" . javascript-mode)
+	 ("\\.stumpwmrc$" . lisp-mode)
+	 ("\\.conkerorrc$" . javascript-mode)
+	 ("\\.sqp$" . sqlplus-mode)
+	 ("\\.gnus$" . emacs-lisp-mode)
+	 ("\\.war$" . archive-mode)
+	 ("\\.ps1$" . powershell-mode)
+	 ("\\.zip$" . archive-mode)
+	 ("\\.ear$" . archive-mode)
+	 ("\\.wkf$" . jython-mode)
+	 ("\\.dsl$" . groovy-mode)
+	 ("env-vars" . sh-mode)
+	 ("\\.pp$" . terraform-mode)
+	 ("\\.ppvars$" . terraform-mode)
+	 ("\\.hcl$" . terraform-mode)
+	 ("\\.spc$" . terraform-mode)
+	 ("\\.sar$" . archive-mode)
+	 ("\\.yml$" . yaml-mode)
+	 ("\\.yaml$" . yaml-mode)
+	 ("\\.tfvars$" . terraform-mode)
+	 (".gitlab-ci.yml" . gitlab-ci-mode))
+       auto-mode-alist))
+(setq dired-guess-shell-alist-user bd/dired-guess-shell-alist-user)
 
-(defun bd/sql-login-hook ()
-  "Custom SQL login behavior for Oracle sessions."
-  (when (eq sql-product 'oracle)
-    (let ((proc (get-buffer-process (current-buffer))))
-      (comint-send-string proc "SET COLSEP \"|\";\n")
-      (comint-send-string proc "SET LINESIZE 16000;\n")
-      (comint-send-string proc "SET PAGESIZE 9999;\n"))))
+;;; tramp
+;; https://willschenk.com/howto/2020/tramp_tricks/
+;; C-x C-f /remotehost:filename RET (or /method:user@remotehost:filename)
+;; C-x C-f /ssh:root@ssb.willschenk.com:/etc/host
+;; C-x C-f /sudo:localhost:/etc/hosts
+;; C-x C-f /sudo::/path/to/file
+;; C-x C-f /docker:redis_container:/
 
-(add-hook 'sql-login-hook #'bd/sql-login-hook)
+;; $ cd /sudo::
+;; /sudo:root@detlef:/root $
+;; ssh-add key.rsa
+;; C-x d /user@host:~ and it's done
 
-(setq compilation-scroll-output t)
 
-(use-package pcmpl-args
-  :ensure t)
+;;(setq same-window-buffer-names nil) ;; buseste *Completions* buffer
+;;(setq same-window-buffer-names '("*Completions*"))
+;;(setq special-display-frame-alist '(unsplittable . nil))
+;;(setq display-buffer-alist '("*Async Shell Command*" "*info*" "*terminal*" "*shell*"))
 
-(setq completion-in-region-function #'consult-completion-in-region)
+;;; 7. Functions
 
-(use-package yasnippet
-  :ensure t
-  :config
-  (yas-global-mode 1)
-  (yas-reload-all))
+;;; 7.2 Dired, archives, and shell-open helpers
 
-(add-hook 'prog-mode-hook #'yas-minor-mode)
+(defun bd/dired-delete-and-revert ()
+  "Delete and revert buffer. Bound to DEL"
+  (interactive)
+  (dired-do-delete)
+  ;; daca am sters atunci, revert, else do nothing
+  (revert-buffer))
 
-(use-package kubernetes
-  :ensure t
-  :commands (kubernetes-overview)
-  :config
-  (setq kubernetes-poll-frequency 3600
-        kubernetes-redraw-frequency 3600))
+(defun archive-extract-to-file (archive-name item-name command dir)
+  "Extract ITEM-NAME from ARCHIVE-NAME using COMMAND. Save to DIR."
+  (unwind-protect
+	  ;; remove the leading / from the file name to force
+	  ;; expand-file-name to interpret its path as relative to dir
+	  (let* ((file-name (if (string-match "\\`/" item-name)
+				(substring item-name 1)
+			  item-name))
+		 (output-file (expand-file-name file-name dir))
+		 (output-dir (file-name-directory output-file)))
+	;; create the output directory (and its parents) if it does
+	;; not exist yet
+	(unless (file-directory-p output-dir)
+	  (make-directory output-dir t))
+	;; execute COMMAND, redirecting output to output-file
+	(apply #'call-process
+		   (car command)
+		   nil
+		   `(:file ,output-file)
+		   nil
+		   (append (cdr command) (list archive-name item-name))))
+	nil))
 
-(fset 'k8s #'kubernetes-overview)
+(defun archive-extract-to-file (archive-name item-name command dir keep-relpath)
+  "Extract ITEM-NAME from ARCHIVE-NAME using COMMAND. Save to
+DIR. If KEEP-RELPATH, extract with relative path otherwise don't."
+  (unwind-protect
+	  (let* ((file-name (if keep-relpath
+				(if (string-match "\\`/" item-name)
+				    (substring item-name 1)
+				  item-name)
+			      (file-name-nondirectory item-name)))
+		 (output-file (expand-file-name file-name dir))
+		 (output-dir (file-name-directory output-file)))
+	(unless (file-directory-p output-dir)
+	  (make-directory output-dir t))
+	(apply #'call-process
+		   (car command)
+		   nil
+		   `(:file ,output-file)
+		   nil
+		   (append (cdr command) (list archive-name item-name))))
+	nil))
 
-(use-package kubel
-  :ensure t
-  :after (vterm)
-  :config
-  (kubel-vterm-setup))
+(defun archive-extract-marked-to-file (keep-relpath)
+  "Extract marked archive items to OUTPUT-DIR. If KEEP-RELPATH is non-nil
+   or prefix-arg (C-u) is set, keep relative paths of files in archive,
+   otherwise don't."
+  (interactive "P")
+  (let ((output-dir (or (dired-dwim-target-directory) default-directory))
+	(command (symbol-value (archive-name "extract")))
+	(archive (buffer-file-name))
+	(items (archive-get-marked ?* t)))
+    (mapc
+     (lambda (item)
+       (archive-extract-to-file archive
+				(aref item 0)
+				command output-dir keep-relpath))
+     items)))
 
-(use-package emms-setup
-  :ensure nil
-  :init
-  (add-hook 'emms-player-started-hook #'emms-show)
-  :config
-  (setq emms-show-format "Playing: %s"
-        emms-source-playlist-default-format 'm3u
-        emms-source-file-default-directory "~/music/")
-  (emms-all)
-  (emms-default-players))
+(add-to-list 'display-buffer-alist '("*Async Shell Command*" display-buffer-no-window (nil)))
 
-(put 'emms-browser-delete-files 'disabled nil)
+(defun xset ()
+  (interactive)
+  ;; Apply the XKB layout before xmodmap so custom mappings are not raced away.
+  (start-process-shell-command
+   "xkb-and-xmodmap" nil
+   (format "/usr/bin/setxkbmap -layout ro -option ctrl:nocaps && /usr/bin/xmodmap %s"
+	   (shell-quote-argument (expand-file-name "~/.Xmodmap"))))
+  (start-process-shell-command
+   "xset-tweaks" nil "/usr/bin/xset b off && /usr/bin/xset r rate 250 30"))
 
-(use-package recentf
-  :hook (after-init . recentf-mode)
-  :custom
-  (recentf-max-saved-items 50))
+(defun bd/resize-window-vertically (key)
+  "Interactively resize the selected window with `+' or `-'."
+  (interactive "cHit +/- to enlarge/shrink")
+  (cond
+   ((eq key (string-to-char "+"))
+	(enlarge-window 1)
+	(call-interactively #'bd/resize-window-vertically))
+   ((eq key (string-to-char "-"))
+	(enlarge-window -1)
+	(call-interactively #'bd/resize-window-vertically))
+   (t (push key unread-command-events))))
+(defalias 'v-resize #'bd/resize-window-vertically)
 
-(provide 'workflow)
+(defun bd/kill-buffer-silently ()
+  "Kill the current bufzzfer without confirmation; unless it is not saved."
+  (interactive)
+  (kill-buffer nil))
+(defalias 'usr-kill-buffer-silently #'bd/kill-buffer-silently)
+
+(defun dired-get-size ()
+  (interactive)
+  (message "Size of all marked files: %s"
+	   (car (split-string
+		 (car (last (apply #'process-lines "/usr/bin/du" "-sch"
+				   (dired-get-marked-files))))))))
+
+(defun dired-do-shell-command-in-background ()
+  (interactive)
+  (let* ((file (dired-get-filename))
+	 (ext (downcase (concat (file-name-extension file) "$")))
+	 (ps (car (assoc-default ext dired-guess-shell-alist-user))))
+    (if (stringp ps)
+	(let ((process-environment
+	       (if (string= ps "geeqie")
+		   (cons "GQ_DISABLE_CLUTTER=y" process-environment)
+		 process-environment)))
+	  (start-process "dired-open" nil ps file))
+      (message "no association"))))
+
+;;; 7.3 Editing and buffer helpers
+
+(defun uniquify-all-lines-region (start end)
+  "Find duplicate lines in region START to END keeping first occurrence."
+  (interactive "*r")
+  (save-excursion
+	(let ((end (copy-marker end)))
+	  (while
+	      (progn
+		(goto-char start)
+		(re-search-forward "^\\(.*\\)\n\\(\\(.*\n\\)*\\)\\1\n" end t))
+	    (replace-match "\\1\n\\2")))))
+
+(defun uniquify-all-lines-buffer ()
+  "Delete duplicate lines in buffer and keep first occurrence."
+  (interactive "*")
+  (uniquify-all-lines-region (point-min) (point-max)))
+
+(defun kill-other-buffers ()
+  "Kill all other buffers."
+  (interactive)
+  (mapc 'kill-buffer
+	(delq (current-buffer)
+	      (remove 'buffer-file-name (buffer-list)))))
+
+(defun bd/toggle-fold ()
+  "Toggle fold all lines larger than indentation on current line."
+  (interactive)
+  (let ((col 1))
+	(save-excursion
+	  (back-to-indentation)
+	  (setq col (+ 1 (current-column)))
+	  (set-selective-display
+	   (if selective-display nil (or col 1))))))
+(defalias 'aj-toggle-fold #'bd/toggle-fold)
+
+(defun bd/set-region-writable (begin end)
+  "Removes the read-only text property from the marked region."
+  (interactive "r")
+  (let ((modified (buffer-modified-p))
+	(inhibit-read-only t))
+    (remove-text-properties begin end '(read-only t))
+    (set-buffer-modified-p modified)))
+(defalias 'set-region-writeable #'bd/set-region-writable)
+
+(defun bd/maximize-window-in-direction (&optional horizontally)
+  "Maximize window.
+Default vertically, unless HORIZONTALLY is non-nil."
+  (interactive)
+  (unless (seq-every-p
+	   (apply-partially #'window-at-side-p nil)
+	   (if horizontally '(left right) '(top bottom)))
+    (let* ((buf (window-buffer))
+	   (top-size (window-size (frame-root-window) (not horizontally)))
+	   (size (min (/ top-size 2) (window-size nil (not horizontally))))
+	   (dir (if horizontally
+		    (if (window-at-side-p nil 'top) 'above 'below)
+		  (if (window-at-side-p nil 'right) 'right 'left))))
+      (delete-window)
+      (set-window-buffer
+       (select-window (split-window (frame-root-window) (- size) dir))
+       buf))))
+(defalias 'maximize-window-in-direction #'bd/maximize-window-in-direction)
+
+;;; 7.4 Shell completion helpers
+
+(defconst pcmpl-git-commands
+  '("add" "bisect" "branch" "checkout" "clone"
+    "commit" "diff" "fetch" "grep"
+    "init" "log" "merge" "mv" "pull" "push" "rebase"
+    "reset" "rm" "show" "status" "tag")
+  "List of `git' commands.")
+
+(defun pcomplete/git ()
+  "Completion for `git'."
+  (pcomplete-here* pcmpl-git-commands))
+
+(defconst pcmpl-terraform-commands
+  '("init" "validate" "plan" "apply" "destroy"
+    "console" "fmt" "force-unlock" "get" "graph" "import" "login" "logout" "metadata" "modules"
+    "output" "show" "state" "taint" "test" "untaint" "version" "workspace")
+  "List of `terraform' commands.")
+
+(defun pcomplete/terraform ()
+  "Completion for `terraform'."
+  (pcomplete-here* pcmpl-terraform-commands))
+
+(defun pcomplete/sudo ()
+  "Completion rules for the `sudo' command."
+  (let ((pcomplete-ignore-case t))
+	(pcomplete-here (funcall pcomplete-command-completion-function))
+	(while (pcomplete-here (pcomplete-entries)))))
+
+(defcustom pcomplete-systemctl-commands
+  '("disable" "enable" "status" "start" "restart" "stop" "reenable"
+    "list-units" "list-unit-files")
+  "Pcomplete candidates for `systemctl' main commands."
+  :type '(repeat (string :tag "systemctl command"))
+  :group 'pcomplete)
+
+(defvar pcomplete-systemd-units
+  (split-string
+   (shell-command-to-string
+	"(systemctl list-units --all --full --no-legend;systemctl list-unit-files --full --no-legend)|while read -r a b; do echo \" $a\";done;"))
+  "Pcomplete candidates for all `systemd' units.")
+
+(defvar pcomplete-systemd-user-units
+  (split-string
+   (shell-command-to-string
+	"(systemctl list-units --user --all --full --no-legend;systemctl list-unit-files --user --full --no-legend)|while read -r a b;do echo \" $a\";done;"))
+  "Pcomplete candidates for all `systemd' user units.")
+
+(defun pcomplete/systemctl ()
+  "Completion rules for the `systemctl' command."
+  (pcomplete-here (append pcomplete-systemctl-commands '("--user")))
+  (cond ((pcomplete-test "--user")
+	 (pcomplete-here pcomplete-systemctl-commands)
+	 (pcomplete-here pcomplete-systemd-user-units))
+	(t (pcomplete-here pcomplete-systemd-units))))
+
+(defvar pcomplete-man-user-commands
+  (split-string
+   (shell-command-to-string
+	"apropos -s 1 .|while read -r a b; do echo \" $a\";done;"))
+  "Pcomplete candidates for `man' command.")
+
+(defun pcomplete/man ()
+  "Completion rules for the `man' command."
+  (pcomplete-here pcomplete-man-user-commands))
+
+;;; 7.4.1 Eshell remote helpers
+
+(defun eshell/remote-cd (&optional directory)
+  (if (file-remote-p default-directory)
+      (with-parsed-tramp-file-name default-directory nil
+	(eshell/cd (tramp-make-tramp-file-name
+		    (tramp-file-name-method v)
+		    (tramp-file-name-user v)
+		    'nil
+		    (tramp-file-name-host v)
+		    'nil
+		    (or directory "")
+		    (tramp-file-name-hop v))))
+    (eshell/cd directory)))
+(defalias 'eshell/rcd 'eshell/remote-cd)
+(defalias 'eshell/lcd 'eshell/remote-cd)

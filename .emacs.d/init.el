@@ -3,30 +3,19 @@
 
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 
-(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
-
 (defun bd/load-config-module (feature)
-  "Load FEATURE from `user-emacs-directory'/lisp, even during reloads."
+  "Load FEATURE from `user-emacs-directory'/lisp in source order."
   (let ((file (expand-file-name (format "lisp/%s.el" feature) user-emacs-directory)))
-    (if (file-exists-p file)
-        (load file nil 'nomessage)
-      (require feature))))
+    (load file nil 'nomessage)))
 
-(bd/load-config-module 'core)
-(bd/load-config-module 'packages)
-
-(when bd/linux
-  (bd/load-config-module 'os-linux))
-
-(when bd/mac
-  (bd/load-config-module 'os-mac))
-
-(bd/load-config-module 'ui)
-(bd/load-config-module 'bd-agent-shell)
-(bd/load-config-module 'workflow)
-
-(load custom-file 'noerror)
-
-(let ((local-file (expand-file-name "local.el" user-emacs-directory)))
-  (when (file-exists-p local-file)
-    (load local-file nil t)))
+(dolist (feature '(os-linux
+		   os-mac
+		   core
+		   workflow
+		   packages
+		   agent-shell
+		   custom-generated))
+  (when (or (not (memq feature '(os-linux os-mac)))
+	    (and (eq feature 'os-linux) bd/linux)
+	    (and (eq feature 'os-mac) bd/mac))
+    (bd/load-config-module feature)))

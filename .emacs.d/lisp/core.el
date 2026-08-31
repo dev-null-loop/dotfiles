@@ -1,117 +1,147 @@
-(defvar bd/default-font nil)
-(defvar bd/default-font-size 12)
-(defvar bd/dired-listing-switches nil)
-(defvar bd/browser-command nil)
-(defvar bd/image-open-command nil)
-(defvar bd/pdf-open-command nil)
-(defvar bd/doc-open-command nil)
-(defvar bd/font-open-command nil)
+;;; 1. Core
 
-(defconst bd/home (expand-file-name "~"))
-(defconst bd/gh-dir (expand-file-name "~/gh"))
-(defconst bd/src-dir (expand-file-name "~/src"))
-(defconst bd/ora-dir (expand-file-name "~/ora"))
-(defconst bd/codex-home (expand-file-name "~/.codex"))
-(defconst bd/default-shell
-  (cond
-   (bd/mac "/bin/zsh")
-   (bd/linux "/bin/bash")
-   (t (or (getenv "SHELL") "/bin/sh"))))
+(defvar bd/default-font "Monaco for Powerline")
+(defvar bd/default-font-size 13)
+(defvar bd/dired-listing-switches "-lav -G --group-directories-first --time-style=long-iso")
+(defvar bd/browser-command "qutebrowser")
+(defvar bd/dired-guess-shell-alist-user nil)
 
-(defun bd/find-executable (&rest candidates)
-  "Return the first executable or existing file from CANDIDATES."
-  (catch 'found
-    (dolist (candidate candidates)
-      (let ((path (or (executable-find candidate)
-                      (expand-file-name candidate))))
-        (when (and path (file-exists-p path))
-          (throw 'found path))))
-    nil))
+;; Ensure Emacs can talk to the same SSH agent as the shell.
+;; Some GUI Emacs sessions don't inherit SSH_AUTH_SOCK, which breaks
+;; `ssh` and Git over SSH inside Emacs. We fix it by:
+;; 1. If SSH_AUTH_SOCK is already set, leave it alone.
+;; 2. Otherwise, assume ssh-agent is running with its socket in
+;;    $XDG_RUNTIME_DIR/ssh-agent.socket (the common setup on Wayland/systemd).
+(setenv "SSH_AUTH_SOCK"
+	(or (getenv "SSH_AUTH_SOCK")
+	    (concat (or (getenv "XDG_RUNTIME_DIR") "/run/user/1000")
+		    "/ssh-agent.socket")))
 
-(defun bd/path-entries (path-value)
-  "Split PATH-VALUE into a list of non-empty path entries."
-  (when path-value
-    (split-string path-value path-separator t)))
+;;; 7. Functions
 
-(defun bd/join-path (entries)
-  "Join ENTRIES into a PATH string."
-  (mapconcat #'identity entries path-separator))
+;;; 7.1 Startup helper
 
-(defun bd/uniq-path (entries)
-  "Return ENTRIES with duplicates removed, preserving order."
-  (let ((seen (make-hash-table :test #'equal))
-        result)
-    (dolist (entry entries (nreverse result))
-      (unless (gethash entry seen)
-        (puthash entry t seen)
-        (push entry result)))))
-
-(defun bd/normalize-path ()
-  "Normalize PATH and `exec-path' for Emacs shells and subprocesses."
-  (let* ((current (bd/path-entries (getenv "PATH")))
-         (extras (delq nil
-                       (mapcar
-                        (lambda (dir)
-                          (when (file-directory-p dir) dir))
-                        (append
-                         (list (expand-file-name "~/.local/bin")
-                               (expand-file-name "~/bin"))
-                         (when bd/mac
-                           '("/opt/homebrew/bin"
-                             "/opt/homebrew/sbin"
-                             "/usr/local/bin"))
-                         (when bd/linux
-                           '("/usr/local/bin"))))))
-         (normalized (bd/uniq-path (append extras current))))
-    (setenv "PATH" (bd/join-path normalized))
-    (setq exec-path (bd/uniq-path (append normalized exec-path)))))
-
-(defun bd/configure-shell-programs ()
-  "Configure the shell programs Emacs should use."
-  (setq shell-file-name bd/default-shell
-        explicit-shell-file-name bd/default-shell)
-  (setenv "SHELL" bd/default-shell)
-  (with-eval-after-load 'vterm
-    (setq vterm-shell bd/default-shell)))
-
+;; Start faster by reducing the frequency of garbage collection and then use a
+;; hook to measure Emacs startup time.
 (defun bd/display-startup-time ()
-  "Report startup time once Emacs is initialized."
   (message "Emacs loaded in %s with %d garbage collections."
-           (format "%.2f seconds"
-                   (float-time
-                    (time-subtract after-init-time before-init-time)))
-           gcs-done))
+	   (format "%.2f seconds"
+		   (float-time
+		    (time-subtract after-init-time before-init-time)))
+	   gcs-done))
 
-(bd/normalize-path)
-(bd/configure-shell-programs)
-(add-hook 'emacs-startup-hook #'bd/display-startup-time)
+(defun bd/with-safe-default-directory (fn &rest args)
+  "Call FN with an existing `default-directory'."
+  (let ((default-directory
+	 (cond
+	  ((and (stringp default-directory)
+		(file-directory-p default-directory))
+	   default-directory)
+	  ((and buffer-file-name
+		(file-directory-p (file-name-directory buffer-file-name)))
+	   (file-name-directory buffer-file-name))
+	  (t (expand-file-name "~")))))
+    (apply fn args)))
 
+;;; 2. Packaging
+
+;; https://emacs.stackexchange.com/questions/34277/best-practice-for-emacs-helm-setup-after-use-package-verse
+;; Install 'use-package' if necessary.
+(require 'package)
+(setq package-enable-at-startup nil)
+(add-to-list 'package-archives
+	     '("melpa-edge" . "https://melpa.org/packages/") t)
+(add-to-list 'package-archives
+	     '("melpa-stable" . "https://stable.melpa.org/packages/") t)
+(package-initialize)
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+
+(load "~/tools/project-root.el")
+
+;;; 3. UI / frames / theme
+
+(add-to-list 'initial-frame-alist '(fullscreen . maximized))
+(add-to-list 'default-frame-alist '(fullscreen . maximized))
+
+;; Fonts: char and monospace: []il|mnopqg0O
+;; 0123456789abcdefghijklmnopqrstuvwxyz [] () :;,. !@#$^&*
+;; 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ {} <> "'`  ~-_/|\?
+(defun bd/disable-all-themes (&rest _)
+  "Disable all active themes."
+  (mapc #'disable-theme custom-enabled-themes))
+(let ((font-spec (format "%s-%s" bd/default-font bd/default-font-size)))
+  (when (find-font (font-spec :name bd/default-font))
+    (set-face-font 'default font-spec)
+    (set-frame-font font-spec)))
+(set-face-attribute 'default nil
+		    :foreground "#ebdbb2"
+		    :background "#073642")
+(bd/disable-all-themes)
+(advice-add 'load-theme :before #'bd/disable-all-themes)
+;; (set-face-attribute 'default nil :height 130)
+;; (set-face-font 'default "Monaco for Powerline-13")
+;; (set-face-font 'default "DejaVu Sans Mono-14")
+;; (set-face-font 'default "Inconsolata for Powerline-16")
+;; (set-face-font 'default "Consolas 7NF-14")
+;; (set-face-font 'default "-microsoft-Consolas-normal-normal-normal-*-18-*-*-*-m-0-iso10646-1")
+
+(menu-bar-mode -1)
+(tool-bar-mode -1)
+(scroll-bar-mode -1)
+(fringe-mode 1) ;; https://emacs.stackexchange.com/questions/5289/any-way-to-get-a-working-separator-line-between-fringe-line-numbers-and-the-buff
+(display-time-mode 0)
 (savehist-mode t)
 (auto-image-file-mode 0)
-(set-default 'truncate-lines t)
+(global-auto-revert-mode 1)
+(global-font-lock-mode 1)
+(ido-mode 0)
+(global-display-line-numbers-mode 1)
+(setq-default truncate-lines t)
 
-(setq create-lockfiles nil
-      large-file-warning-threshold 67108864
+;;; 4. Variables / customization
+
+;;; 4.1 Frame defaults
+
+(setq default-frame-alist
+      (append
+       '((cursor-color . "red")
+	 (default-truncate-lines . t)
+	 (scroll-margin . 1))
+       default-frame-alist))
+
+;;; 4.2 Core editor behavior
+
+(setq read-process-output-max (* 1024 1024) ;; ~1mb; [default 4k]
+      gc-cons-threshold (* 2 8 1000 1024) ;; ~16mb; default is: 800 000
+      create-lockfiles nil
+      large-file-warning-threshold 50000000
       calc-multiplication-has-precedence nil
       ange-ftp-make-backup-files nil
       auto-compression-mode 1
       auto-save-default nil
       auto-save-list-file-prefix nil
       auto-save-mode 0
+      auth-sources '("~/.authinfo")
       backup-by-copying-when-mismatch t
+      blink-cursor-mode -1
       bookmark-save-flag 1
       c-default-style "linux"
       c-hungry-delete-key t
       c-toggle-hungry-state t
       case-fold-search t
       column-number-mode t
+      completion-styles '(flex)
       compilation-ask-about-save 0
-      compilation-scroll-output nil
+      compilation-scroll-output t
       compilation-window-height 9
       compile-command "make"
       default-major-mode 'text-mode
+      dired-listing-switches bd/dired-listing-switches
       dired-recursive-copies 'always
       dired-recursive-deletes 'always
+      ediff-window-setup-function 'ediff-setup-windows-plain
       fill-column 178
       gnus-use-full-window nil
       grep-highlight-matches t
@@ -121,62 +151,72 @@
       inhibit-startup-message t
       kill-whole-line t
       make-backup-files nil
-      mouse-wheel-follow-mouse t
+      mouse-wheel-follow-mouse 't
       mouse-wheel-progressive-speed nil
       mouse-wheel-scroll-amount '(2 ((shift) . 2))
+      netstat-program "netstat"
       nxml-child-indent 4
       nxml-attribute-indent 4
+      process-adaptive-read-buffering nil
       query-replace-highlight t
       require-final-newline t
       scroll-conservatively 50
       scroll-preserve-screen-position nil
       scroll-step 1
       search-highlight t
+      set-scroll-bar-mode nil
       show-paren-mode 1
       size-indication-mode t
-      split-height-threshold nil
+      split-height-threshold 80
       split-width-threshold 160
       term-suppress-hard-newline t
       transient-mark-mode 1
+      trash-directory "~/.Trash"
+      tramp-default-method "ssh"
       visible-bell nil
-      window-min-height 8
+      window-min-height 0
       window-min-width 16
-      x-select-enable-clipboard t
+      x-select-enable-clipboard t)
+(setq-default
+ mode-line-buffer-identification
+ (list '((buffer-file-name "%f"
+			   (dired-directory
+			    dired-directory
+			    (revert-buffer-function " %b"
+						    ("%b - Dir:  " default-directory)))))))
+
+;;; 4.3 Runtime / browser / environment
+
+(setq browse-url-browser-function #'browse-url-default-browser
+      browse-url-generic-program bd/browser-command
+      browse-url-handlers '(("picnob.com" . browse-url-firefox)
+			    ("pixnoy.com" . browse-url-firefox)
+			    ("." . browse-url-generic))
       savehist-additional-variables '(search-ring regexp-search-ring)
-      savehist-file (expand-file-name "savehist" user-emacs-directory))
+      savehist-file "~/.emacs.d/savehist"
+      treesit-language-source-alist
+      '((bash "https://github.com/tree-sitter/tree-sitter-bash")
+	(cmake "https://github.com/uyha/tree-sitter-cmake")
+	(css "https://github.com/tree-sitter/tree-sitter-css")
+	(elisp "https://github.com/Wilfred/tree-sitter-elisp")
+	(go "https://github.com/tree-sitter/tree-sitter-go")
+	(html "https://github.com/tree-sitter/tree-sitter-html")
+	(javascript "https://github.com/tree-sitter/tree-sitter-javascript" "master" "src")
+	(json "https://github.com/tree-sitter/tree-sitter-json")
+	(make "https://github.com/alemuller/tree-sitter-make")
+	(markdown "https://github.com/ikatyang/tree-sitter-markdown")
+	(python "https://github.com/tree-sitter/tree-sitter-python")
+	(toml "https://github.com/tree-sitter/tree-sitter-toml")
+	(tsx "https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")
+	(typescript "https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")
+	(yaml "https://github.com/ikatyang/tree-sitter-yaml")))
+(advice-add 'browse-url-default-browser :around #'bd/with-safe-default-directory)
+(advice-add 'browse-url-generic :around #'bd/with-safe-default-directory)
+(prefer-coding-system 'utf-8)
+(setenv "DBUS_SESSION_BUS_ADDRESS"
+	"unix:path=/run/user/1000/bus")
 
-(setq-default mode-line-buffer-identification
-              (list '((buffer-file-name "%f"
-                                        (dired-directory
-                                         dired-directory
-                                         (revert-buffer-function
-                                          " %b"
-                                          ("%b - Dir:  " default-directory)))))))
-
-(setq auto-mode-alist
-      (append
-       '(("\\.js$" . javascript-mode)
-         ("\\.stumpwmrc$" . lisp-mode)
-         ("\\.conkerorrc$" . javascript-mode)
-         ("\\.sqp$" . sqlplus-mode)
-         ("\\.gnus$" . emacs-lisp-mode)
-         ("\\.war$" . archive-mode)
-         ("\\.ps1$" . powershell-mode)
-         ("\\.zip$" . archive-mode)
-         ("\\.ear$" . archive-mode)
-         ("\\.wkf$" . jython-mode)
-         ("\\.dsl$" . groovy-mode)
-         ("env-vars" . sh-mode)
-         ("\\.pp$" . terraform-mode)
-         ("\\.ppvars$" . terraform-mode)
-         ("\\.hcl$" . terraform-mode)
-         ("\\.spc$" . terraform-mode)
-         ("\\.sar$" . archive-mode)
-         ("\\.yml$" . yaml-mode)
-         ("\\.yaml$" . yaml-mode)
-         ("\\.tfvars$" . terraform-mode)
-         (".gitlab-ci.yml" . gitlab-ci-mode))
-       auto-mode-alist))
+;;; 4.4 Editing defaults and safety
 
 (autoload 'paren "paren" nil t)
 (autoload 'dired-tar "dired-tar" nil t)
@@ -185,63 +225,6 @@
 (put 'upcase-region 'disabled nil)
 (put 'erase-buffer 'disabled nil)
 
-(defalias 'sh 'shell)
-(defalias 'perl-mode 'cperl-mode)
-(defalias 'yes-or-no-p 'y-or-n-p)
-(defalias 'qrr 'query-replace-regexp)
-
-(global-set-key (kbd "C-x k") #'kill-current-buffer)
-
-(defun bd/usr-erase ()
-  "Delete the current Dired selection, then refresh the buffer."
-  (interactive)
-  (dired-do-delete)
-  (revert-buffer))
-
-(defun bd/dired-associated-program (file)
-  "Return the external program associated with FILE, or nil."
-  (let ((file-name (downcase (file-name-nondirectory file))))
-    (catch 'match
-      (dolist (entry dired-guess-shell-alist-user)
-        (when (string-match-p (car entry) file-name)
-          (throw 'match
-                 (let ((command (cdr entry)))
-                   (if (listp command) (car command) command))))))))
-
-(defun bd/dired-open-externally (&optional file)
-  "Open FILE with its external associated program."
-  (let* ((file (or file (dired-get-filename)))
-         (program (bd/dired-associated-program file)))
-    (when (stringp program)
-      (let* ((resolved-program (or (executable-find program) program))
-             (process-environment
-              (if (string-match-p "geeqie\\'" resolved-program)
-                  (cons "GQ_DISABLE_CLUTTER=y" process-environment)
-                process-environment))
-             (command (mapconcat #'shell-quote-argument
-                                 (list resolved-program file)
-                                 " ")))
-        (start-process-shell-command
-         (format "dired-open-%d" (truncate (float-time)))
-         nil
-         (if (executable-find "setsid")
-             (format "setsid -f %s >/dev/null 2>&1" command)
-           (format "%s >/dev/null 2>&1 &" command)))
-        t))))
-
-(defun dired-do-shell-command-in-background ()
-  "Open the current Dired file with its associated external program."
-  (interactive)
-  (unless (bd/dired-open-externally)
-    (message "no association")))
-
-(add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
-(add-hook 'before-save-hook #'whitespace-cleanup)
-(add-hook 'dired-mode-hook
-          (lambda ()
-            (local-unset-key "\M-!")
-            (local-set-key [\C-!] #'shell-command)
-            (local-set-key "&" #'dired-do-shell-command-in-background)
-            (local-set-key "\C-d" #'bd/usr-erase)))
-
-(provide 'core)
+;; Make the kill ring work with X selections.
+;; (setq select-enable-clipboard t
+;;       select-enable-primary t)

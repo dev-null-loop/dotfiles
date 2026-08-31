@@ -1,18 +1,43 @@
+;;; macOS compatibility layer for the shared config split.
+
 (setq bd/default-font "Monaco"
       bd/default-font-size 12
       bd/dired-listing-switches "-alh"
       bd/browser-command "open"
-      bd/image-open-command "open"
-      bd/pdf-open-command "open"
-      bd/doc-open-command "open"
-      bd/font-open-command "open")
-
-(setq mac-command-modifier 'meta
-      mac-option-modifier 'super
-      mac-right-option-modifier 'super
-      mac-pass-option-to-system nil)
-
-(with-eval-after-load 'eshell
-  (require 'eshell-z nil t))
-
-(provide 'os-mac)
+      bd/dired-guess-shell-alist-user
+      '(("ADF$" "open")
+	("CR2$" "open")
+	("avi$" "open")
+	("doc$" "open")
+	("docx$" "open")
+	("flv$" "open")
+	("jpeg$" "open")
+	("jpg$" "open")
+	("m4v$" "open")
+	("mkv$" "open")
+	("mov$" "open")
+	("mp3$" "open")
+	("mp4$" "open")
+	("mpeg$" "open")
+	("mpg$" "open")
+	("mts$" "open")
+	("odp$" "open")
+	("ods$" "open")
+	("odt$" "open")
+	("ogm$" "open")
+	("otf$" "open")
+	("pdf$" "open")
+	("png$" "open")
+	("pps$" "open")
+	("ppt$" "open")
+	("pptm$" "open")
+	("pptx$" "open")
+	("rtf$" "open")
+	("svg$" "open")
+	("ts$" "open")
+	("ttf$" "open")
+	("webm$" "open")
+	("webp$" "open")
+	("wmv$" "open")
+	("xls$" "open")
+	("xlsx$" "open")))

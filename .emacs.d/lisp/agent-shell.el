@@ -4,10 +4,34 @@
 
 (defvar bd/home (expand-file-name "~"))
 (defvar bd/codex-home (expand-file-name "~/.codex"))
+(defun bd/find-codex-acp-command ()
+  "Return the first usable `codex-acp' launcher path."
+  (or (executable-find "codex-acp")
+      (catch 'found
+	(dolist (path
+		 (delq nil
+		       (list
+			(expand-file-name ".local/node_modules/.bin/codex-acp" bd/home)
+			(expand-file-name "node_modules/.bin/codex-acp" bd/home)
+			(and bd/mac (expand-file-name ".npm-global/bin/codex-acp" bd/home))
+			(and bd/mac "/opt/homebrew/bin/codex-acp")
+			(and bd/mac "/usr/local/bin/codex-acp"))))
+	  (when (file-executable-p path)
+	    (throw 'found path))))))
 (defvar bd/codex-acp-command
-  (expand-file-name ".local/node_modules/.bin/codex-acp" bd/home))
+  (or (bd/find-codex-acp-command)
+      (expand-file-name ".local/node_modules/.bin/codex-acp" bd/home)))
 (defvar bd/agent-recall-transcript-dir
   (expand-file-name "~/.agent-shell/transcripts"))
+(defvar bd/agent-recall-index-dir
+  (expand-file-name "agent-recall" user-emacs-directory))
+
+(defun bd/ensure-agent-shell-dirs ()
+  "Create local directories that agent-shell integrations expect."
+  (dolist (dir (list bd/agent-recall-transcript-dir
+		     bd/agent-recall-index-dir))
+    (unless (file-directory-p dir)
+      (make-directory dir t))))
 
 (use-package shell-maker
   :config
@@ -180,7 +204,10 @@ user is still editing the live prompt."
 	(agent-shell-openai-make-authentication :login t)))
 
 (use-package agent-recall
+  :ensure t
   :after agent-shell
+  :init
+  (bd/ensure-agent-shell-dirs)
   :custom
   (agent-recall-search-function 'grep)
   (agent-recall-canonical-transcript-dir bd/agent-recall-transcript-dir)

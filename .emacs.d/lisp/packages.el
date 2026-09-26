@@ -90,7 +90,7 @@
   :ensure t
   :init
   (defun bd/helm-fonts ()
-    (face-remap-add-relative 'default :family "Monaco for Powerline"))
+    (face-remap-add-relative 'default :family bd/default-font))
   :bind (("C-x C-f" . helm-find-files)
 	 ("C-x C-b" . helm-buffers-list)
 	 ("M-x" . helm-M-x)
@@ -138,17 +138,21 @@
   (global-unset-key (kbd "C-x c"))
   (set-frame-parameter nil 'background-mode 'dark)
   (set-face-attribute 'helm-source-header nil
-		      :font "Monaco for Powerline")
+		      :family bd/default-font)
   (set-face-attribute 'helm-selection nil
 		      :background "red"
 		      :foreground "#ebdbb2")
-  (set-face-font 'helm-source-header "Monaco for Powerline-10")
+  (set-face-attribute 'helm-source-header nil
+		      :height 100)
   (helm-mode 1)
   (helm-autoresize-mode 1))
 (use-package helm-xref
   :ensure t)
 
 (use-package helm-pass
+  :ensure t)
+
+(use-package ghostel
   :ensure t)
 
 (use-package helm-exwm
